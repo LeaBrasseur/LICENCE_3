@@ -1,0 +1,692 @@
+---
+title: "Projet R"
+subtitle: "**Etude de la base de données Males**"
+author: "Léa BRASSEUR, Benjamin CHAUVET & Neil DUPIN"
+date: ' '
+lang: "fr"
+fontsize: 11pt
+geometry: a4paper,top=2cm,bottom=2cm,left=1.5cm,right=1.5cm
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H} 
+- \floatplacement{table}{H} 
+output:
+  html_document: 
+    toc: true
+    toc_float: true
+    number_section: false
+    highlight: "espresso"
+    theme: flatly
+    df_print: paged
+    dev: png
+  pdf_document: 
+    toc: false
+    number_section: true 
+    keep_tex: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.align="center")
+```
+
+```{r, echo = FALSE}
+library(readxl)
+library(stargazer)
+library(lmtest)
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(kableExtra)
+library(gridExtra)
+library(GGally)
+library(corrplot)
+library(ggcorrplot)
+```
+
+```{r, echo = FALSE}
+Males = read_excel("Males.xlsx")
+```
+
+```{r, echo = FALSE}
+Malesv1 <- Males
+```
+
+<span style="color:orange">**Nous allons étudier la base de données "Males" portant sur le salaire de jeunes hommes américains pendant les années 1980 à 1987, en fonction de différentes variables comme leur éducation ou encore leur niveau d'expérience.**</span>
+
+# Introduction 
+
+### *La base de données*
+
+Notre base de données Males.xlsx contient 12 variables : 
+
+
+- **id** : identifiant
+
+- **annee** : année
+
+- **ecole** : années de scolarité
+
+- **exper** : années d'expérience
+
+- **syndicat** : salaire fixé par la négociation collective
+
+- **ethnie** : facteur à 3 niveaux (black, hisp, other)
+
+- **s** : marié ou non
+
+- **sante** : problème de santé ou non
+
+- **salaire** : log du salaire horaire
+
+- **industrie** : type d'industrie, facteur à 12 niveaux
+
+- **poste** : type de poste, facteur à 9 niveaux
+
+- **residence** : lieu de résidence, facteur à 4 niveaux  (rural area, north east, northern central, south)
+
+Nous pouvons voir que les modèles étudiés seront sous la forme log-niveau. 
+
+Nous recodons toute la base de données pour que tout soit en facteurs et pour que nous puissions faire les graphiques plus facilement. 
+
+```{r , echo = FALSE }
+Males$industrie <- factor(Males$industrie)
+Males$industrie <- as.numeric(Males$industrie)
+Males$syndicat <- factor(Males$syndicat)
+Males$syndicat <- as.numeric(Males$syndicat)
+Males$ethnie <- factor(Males$ethnie)
+Males$ethnie <- as.numeric(Males$ethnie)
+Males$s <- factor(Males$s)
+Males$s <- as.numeric(Males$s)
+Males$sante <- factor(Males$sante)
+Males$sante <- as.numeric(Males$sante)
+Males$poste <- factor(Males$poste)
+Males$poste <- as.numeric(Males$poste)
+Males$residence <- factor(Males$residence)
+Males$residence <- as.numeric(Males$residence)
+Males$salaire <-as.numeric(Males$salaire)
+Males
+```
+
+
+### *Les variables qualitatives*
+
+Commençons par visualiser nos variables qualitatives :
+
+```{r, echo=FALSE}
+
+t<-ggplot(Malesv1, aes(x=syndicat))+
+  geom_bar(stat="count", width=0.7, fill="cornflowerblue")+
+  theme_minimal()+
+  ggtitle("Syndicat")+
+  labs(x="", y="effectifs")+
+  geom_text(Males, mapping = aes(label = scales::percent(..prop..), 
+                                 y= ..prop.. ), stat= "count",vjust = -1, size=4)
+
+u<-ggplot(Malesv1, aes(x=ethnie))+
+  geom_bar(stat="count", width=0.7, position="dodge", fill="cornflowerblue")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Ethnies")+
+  labs(x="", y="effectifs")+
+  geom_text(Males, mapping = aes(label = scales::percent(..prop..), 
+                                 y= ..prop.. ), stat= "count",hjust = 0, size=3)
+
+
+v<-ggplot(Malesv1, aes(x=s))+
+  geom_bar(stat="count", width=0.7, fill="cornflowerblue")+
+  theme_minimal()+
+  ggtitle("S (marié)")+
+  labs(x="", y="effectifs")+
+  geom_text(Males, mapping = aes(label = scales::percent(..prop..), 
+                                 y= ..prop.. ), stat= "count",vjust = -1, size=4)
+
+w<-ggplot(Malesv1, aes(x=sante))+
+  geom_bar(stat="count", width=0.7, fill="cornflowerblue")+
+  theme_minimal()+
+  ggtitle("Santé")+
+  labs(x="", y="effectifs")+
+  geom_text(Males, mapping = aes(label = scales::percent(..prop..), 
+                                 y= ..prop.. ), stat= "count",vjust = -1, size=4)
+
+
+x<-ggplot(Malesv1, aes(x=residence))+
+  geom_bar(stat="count", width=0.7, position="dodge", fill="cornflowerblue")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Residence")+
+  labs(x="", y="effectifs")+
+  geom_text(Males, mapping = aes(label = scales::percent(..prop..), 
+                                 y= ..prop.. ), stat= "count",hjust = -0.2, size=4)
+
+y<-ggplot(Malesv1, aes(x=industrie))+
+  geom_bar(stat="count", width=0.7, position="dodge", fill="cornflowerblue")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Répartition des industries")+
+  labs(x="industries", y="effectifs")
+  
+
+
+z<-ggplot(Malesv1, aes(x=poste))+
+  geom_bar(stat="count", width=0.7, position="dodge", fill="cornflowerblue")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Répartition des postes")+
+  labs(x="postes", y="effectifs")
+  
+
+grid.arrange(t,u,v,w,x, nrow=2)
+grid.arrange(y,z,nrow=2)
+
+```
+
+On remarque que dans notre base de données : 
+
+* 76% des salaires ne sont pas négociés par un syndicat.
+
+* 11,6% des personnes sont d'éthnie noire et 15,6% hispanique.
+
+* Approximativement autant de personnes sont mariés ou non mariés.
+
+* 98% ne présentent pas de problèmes de santé.
+
+* Moins de 2% vivent en rural area.
+
+* Trade et Manufacturing sont les industries les plus nombreuses.
+
+* Craftmen, Foremen_and_kindred est le poste le plus fréquent.
+
+
+Nous introduisons également une base de données **Males2**, en enlevant les variables id et résidence qui ne semblent pas significatives. De plus, la variable résidence comporte des valeurs non disponibles. 
+
+
+```{r, echo = FALSE}
+Males2 <- Males[,c(-1,-12)]
+Males2
+```
+
+ 
+### *Les variables quantitatives*
+
+```{r, echo = FALSE, fig.height = 4, fig.width = 6}
+par(mfrow=c(1,2))
+e <- ggplot(Males, aes(y=exper))+
+  geom_bar(stat="count", width=0.7, fill="firebrick1")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Répartition de la variable exper")+
+  labs(x="Effectif",y="Années d'expérience")
+ 
+f <- ggplot(Males, aes(y=ecole))+
+  geom_bar(stat="count", width=0.7, fill="firebrick1")+
+  theme_minimal()+coord_flip()+
+  ggtitle("Répartition de la variable ecole")+
+  labs(x="Effectif",y="Années d'études")
+grid.arrange(e,f, nrow = 1,
+              top = "Exper - Ecole")
+```
+
+On voit que la variable **ecole** a une forte concentration sur la valeur 12.
+
+### *La variable salaire*
+
+Nous allons nous intéresser plus particulièrement à la variable salaire.
+Pour avoir une première idée sur cette variable, traçons la répartition des salaires : 
+
+```{r, echo = FALSE, fig.height = 3, fig.width = 5}
+Males2 %>%
+group_by(salaire) %>%
+summarise(n = n()) %>%
+ggplot(aes(x = salaire, y = n)) +
+geom_line(color = 'firebrick1') +
+geom_point(color = 'cornflowerblue', size = 0.5) +
+theme_linedraw() +
+theme(plot.title = element_text(hjust = 0, face = 'bold',color = 'black'),
+      plot.subtitle = element_text(face = "italic")) +
+labs(x = 'salaire(log)', y = 'effectif', title = "Répartition des salaires") +
+scale_x_continuous(breaks=seq(-0.5, 4))
+```
+
+On voit que la variable salaire a une répartition plutôt homogène dans notre base de données.
+
+
+```{r, echo = FALSE, fig.height = 6, fig.width = 10}
+DB <- Males %>% select(annee, ecole, exper, sante, salaire)
+
+a <- ggplot(DB, aes(x = annee, y = salaire)) +
+geom_point(color = 'blue', size = 0.5) +
+geom_smooth(method="lm", color = 'red', size = 0.5) +
+theme_linedraw() + 
+labs(x = 'Année', y = 'salaire') + 
+scale_y_continuous(labels = scales::comma)
+
+
+b <- ggplot(DB, aes(x = ecole, y = salaire)) +
+geom_point(color = 'green', size = 0.5) +
+geom_smooth(method="lm", color = 'purple', size = 0.5) +
+theme_linedraw() + 
+labs(x = 'Grade', y = 'Salaire') + 
+scale_y_continuous(labels = scales::comma)
+
+c <- ggplot(DB, aes(x = exper, y = salaire)) +
+geom_point(color = 'brown', size = 0.5) +
+geom_smooth(method="lm", color = 'yellow', size = 0.5) +
+theme_linedraw() + 
+labs(x = 'Exper', y = 'Salaire') + 
+scale_y_continuous(labels = scales::comma)
+
+grid.arrange(a,b,c, nrow = 2,
+              top = "Graphiques en fonction des salaires")
+```
+
+Ces graphiques nous montrent que le salaire est positivement corrélé avec les variables **annee**, **ecole** et **exper** qui traduisent l'année, les années d'éducation et les années d'expérience. 
+
+### *Les statistiques descriptives*
+
+```{r, echo = FALSE}
+summary(Males) %>% kable() %>% kable_styling(full_width = FALSE,
+      position = "center",
+      bootstrap_options = c("striped", "hover"),
+      latex_options = c("hold_position")
+      )
+```
+
+### *Corrélation*
+
+Regardons la matrice des corrélations pour voir les relations qui ressortent entre les différentes variables.
+
+```{r, echo = FALSE}
+MatriceCor <- as.dist(round(cor(Males2),2)) 
+MatriceCor
+```
+
+Graphique lié à la matrice des corrélations 
+
+```{r, echo = FALSE, fig.height = 3, fig.width = 5}
+corrplot(cor(Males2))
+```
+
+
+```{r, echo = FALSE, fig.height = 3, fig.width = 5}
+ggcorr(Males2, name = "corr", label = TRUE, hjust = 1, label_size = 2.5, angle = -45, size = 3)
+```
+
+On remarque que le salaire est : 
+
+* très peu corrélé avec les variables syndicat, ethnie et sante
+
+* peu corrélé avec les variables s et exper 
+
+* faiblement corrélé avec les variables ecole et annee 
+
+# Régression linéaire 1
+
+### *Les effets d'interactions*
+
+Il est possible de tester les effets d'interactions entre les variables du modèle. Si nous prouvons qu'il y a un effet entre 2 variables il n'est alors pas nécessaire d'inclure les 2 dans le modèle. 
+
+```{r,include = FALSE}
+regression <- lm(formula = salaire ~ ecole + exper + ecole*exper, data = Males)
+```
+
+```{r, include = FALSE}
+summary(regression)
+```
+
+
+```{r, echo = FALSE}
+stargazer(regression,use = "complete.obs", type = "text", keep.stat = c("n"))
+```
+
+Nous pouvons observer qu'il n'y a aucun lien entre les variables école et exper car le coefficient est très faible (0.001). 
+
+### *Régression linéaire* 
+
+```{r, include = FALSE}
+reg1 <- lm(formula = salaire ~ exper + ecole, data = Males)
+```
+
+```{r, echo = FALSE}
+summary(reg1)
+```
+
+# Analyse de la régression 1 
+### *Les coefficients*
+
+<span style="color:blue">**p-value = 2e-16 < alpha = 0.001**</span>
+
+On rejette H0. Ce qui veut dire que les coefficients associés aux variables exper et école sont significativement différents de 0, toutes choses égales par ailleurs. Ce qui signifie qu'une augmentation d'une année du niveau d'expérience et une augmentation d'une année du niveau d'école augmente respectivement le salaire de 5.6429% et de 10.7884%.
+
+
+### *R²*
+
+Le coefficient de détermination est égal à **0.1429**. Ce qui veut dire que le modèle explique seulement à 14.29% la variabilité du salaire. Pour avoir un modèle plus performant il faudrait rajouter d'autres variables explicatives. 
+Nous savons que le R² augmente avec le nombre de variables explicatives, pour réctifier cela nous regardons le R², qui ici est de **0.1425**. Il est donc très proche du R² et les conclusions sont similaires. 
+
+
+### *Significativé globale du modèle et des coefficients* 
+
+<span style="color:blue">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+Ce qui veut dire qu'on rejette l'hypothèse nulle et nous en déduisons que le modèle est globalement significatif. 
+
+
+### *Les résidus* 
+
+Pour accepter les résultats d'une régression, il faut que les résidus soient identiquement distribués et de manière aléatoire. Ils  doivent également être homoscédastiques, être indépendants et suivre une loi normale. 
+
+```{r, echo = FALSE, fig.height = 6, fig.width = 10}
+par(mfrow=c(2,2))
+plot(reg1)
+```
+
+- *Normalité*
+
+```{r, echo = FALSE}
+shapiro.test(reg1$residuals)
+```
+
+<span style="color:blue">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+On rejette H0, l'hypothèse de normalité des résultats. 
+
+Grâce au test de shapiro et au graphique "Normal Q-Q" nous pouvons voir que les résidus de la régression ne suivent pas une loi normale. 
+
+- *Homoscédasticité*
+
+```{r, echo = FALSE}
+bptest(reg1)
+```
+
+<span style="color:blue">**p-value = 0.003689 < alpha = 0.01**</span>
+
+D'après le test, on rejette H0. Ce qui veut dire que les variances ne sont pas constantes, elles sont hétéroscédastiques. 
+
+Cependant, au niveau du graphique nous ne distinguons pas de tendance particulière dans la distribution des résidus puisque la droite rouge est horizontale. 
+
+- *Linéarité* 
+
+D'après le graphique "Residuals vs Fitted", nous pouvons voir que les résidus ont tendance à se regrouper et donc qu'ils ne sont pas distribués aléatoirement. L'hypothèse de linéarité est donc rejettée. 
+
+- *Valeurs aberrantes*
+
+Nous pouvons constater, grâce au graphique "Residuals vs Leverage", qu'il n'y a pas vraiment de valeurs aberrantes puisque la droite rouge est proche de 0. 
+
+```{r, echo = FALSE}
+plot(reg1, 4)
+```
+
+De plus, sur le graphique précédent nous pouvons voir que la distance de Cook ne dépasse jamais 1. Cependant, nous distiguons 3 variables qui ont une tendance différente de celles des autres.
+
+### *Conclusion* 
+
+Les résultats ne peuvent pas être acceptés puisque les résidus ne suivent pas une loi normale, ils ne sont pas homoscédastiques et ils ne sont pas distribués aléatoirement.
+
+# Régression linéaire 2 
+### *Régression linéaire*
+
+Nous avons décidés de faire une nouvelle régression en fonction, cette fois-ci, de toutes les variables que nous avons à notre disposition, exceptée les variables Id et résidence.
+
+```{r, echo = FALSE}
+Malesv1 <- Malesv1[,c(-1,-12)]
+```
+
+
+```{r, echo = FALSE}
+reg2 = lm(salaire~.,data=Malesv1)
+summary(reg2)
+```
+
+# Analyse de la régression 2 
+### *Les coefficents*
+
+Les p-value des coefficients associés aux variables année, école, exper, syndicat, ethnie et s sont toutes inférieures à alpha = 0.001. Tous ces coefficients sont donc significativement différents de 0 et ont un lien direct avec la variabilité du salaire. 
+
+Pour ce qui est de la variable santé, sa p-value est inférieure à 1, cependant nous avons 58.56% de nous tromper. Nous acceptons donc l'hypothèse H0 : la variable santé n'influence pas le salaire. 
+
+En analysant les p-value des coefficients associés à chaque type d'industrie nous remarquons qu'elles sont toutes inférieures à alpha (sauf pour industrie Professional and Related Service). Ce qui veut dire que tous les coefficients (sauf un) sont significativement différents de 0 et que les variables ont une incidence sur le salaire. 
+
+Nous tirons les mêmes conclusions pour la variable poste quelle que soit la modalité.
+
+Nous observons donc que dans ce modèle la plupart des variables ont une influence directe sur le salaire. Par exemple, l'augmentation d'une année d'étude va augmenter le salaire de 7.7%, toutes choses égales par ailleurs. Nous pouvons également dire que les postes de "Professional, Technical_and_kindred" rapportent plus (15%) que ceux de "Craftsmen, Foremen_and_kindred" (3%). 
+
+### *R²* 
+
+Le coefficient de détermination est égal à **0.2629**. Ce qui veut dire que le modèle explique seulement à 26.29% la variabilité du salaire. Le R² est plus élevé que pour le modèle précédent, il reste cependant très bas. Ce qui veut dire que le modèle pourrait être mieux ajusté.  
+Nous tirons les mêmes conclusions pour le R² ajusté. 
+
+### *Significativité globale du modèle*
+
+<span style="color:green">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+Ici, on rejette l'hypothèse nulle et nous en déduisons que le modèle est globalement significatif. 
+
+### *Les résidus*
+
+```{r, echo = FALSE, fig.height = 6, fig.width = 10}
+par(mfrow=c(2,2))
+plot(reg2)
+```
+
+- *Normalité*
+
+```{r, echo = FALSE}
+shapiro.test(reg2$residuals)
+```
+
+<span style="color:green">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+On rejette H0, l'hypothèse de normalité des résidus. 
+
+Grâce au test de shapiro et au graphique nous pouvons voir que les résidus de la régression ne suivent pas une loi normale, principalement à cause des valeurs extrêmes. 
+
+- *Homoscédasticité* 
+
+Le graphique "Scale-Location" nous montre que les résidus ne suivent pas une tendance particulière. En revanche, ici un test d'homoscédasticité n'est pas réalisable. Il est donc difficile de conclure seulement avec une analyse graphique. 
+
+- *Linéarité* 
+
+D'après le graphique "Residuals vs Fitted", nous pouvons voir que les résidus ont tendance à se regrouper et donc qu'ils ne sont pas distribués aléatoirement. L'hypothèse de linéarité est donc rejettée.
+
+- *Valeurs aberrantes*
+
+D'après le graphique "Residuals vs Leverage", nous pouvons conclure qu'il n'y a pas de valeurs aberrantes. 
+
+```{r, echo = FALSE}
+plot(reg2, 4)
+```
+
+La distance de Cook n'excède jamais 1 mais il y a, comme pour le modèle précédent, des valeurs qui se distinguent. 
+
+- *Conclusion*
+
+Nous pouvons conclure que les résultats du modèle 2 ne peuvent pas être acceptés puisque les résidus ne suivent pas une loi normale et ils ne sont pas distribués de manière aléatoire. 
+
+
+# Régression linéaire 3 
+
+Nous avons décider de faire une troisième régression dans le but d'obtenir un R² plus élevé et donc d'avoir un modèle mieux ajusté. 
+
+Dans un premier temps, nous recodons toute la base de données pour en faire une matrice avec une majorité de variables binaires. Puis, nous faisons la régression. 
+
+```{r, echo = FALSE}
+Malesv1$industrie <- factor(Malesv1$industrie)
+industrie1 = as.numeric(Malesv1$industrie == "Agricultural")
+Malesv1 <- cbind(Malesv1, industrie1)
+industrie2 = as.numeric(Malesv1$industrie == "Business_and_Repair_Service")
+Malesv1 <- cbind(Malesv1, industrie2)
+industrie3 = as.numeric(Males$industrie == "Construction")
+Malesv1 <- cbind(Malesv1, industrie3)
+industrie4 = as.numeric(Malesv1$industrie == "Entertainment")
+Malesv1 <- cbind(Malesv1, industrie4)
+industrie5 = as.numeric(Malesv1$industrie == "Finance")
+Malesv1 <- cbind(Malesv1, industrie5)
+industrie6 = as.numeric(Malesv1$industrie == "Manufacturing")
+Malesv1 <- cbind(Malesv1, industrie6)
+industrie7 = as.numeric(Malesv1$industrie == "Mining")
+Malesv1 <- cbind(Malesv1, industrie7)
+industrie8 = as.numeric(Malesv1$industrie == "Personal_Service")
+Malesv1 <- cbind(Malesv1, industrie8)
+industrie9 = as.numeric(Malesv1$industrie == "Professional_and_Related Service")
+Malesv1 <- cbind(Malesv1, industrie9)
+industrie10 = as.numeric(Malesv1$industrie == "Public_Administration")
+Malesv1 <- cbind(Malesv1, industrie10)
+industrie11 = as.numeric(Malesv1$industrie == "Trade")
+Malesv1 <- cbind(Malesv1, industrie11)
+industrie12 = as.numeric(Malesv1$industrie == "Transportation")
+Malesv1 <- cbind(Malesv1, industrie12)
+Malesv1 <- Malesv1[,-9]
+```
+
+
+```{r, echo = FALSE}
+Malesv1$syndicat <- factor(Malesv1$syndicat)
+Malesv1$syndicat1 <- rep("0", nrow(Malesv1))
+Malesv1$syndicat1[Malesv1$syndicat == "yes"] <- "1"
+Malesv1$syndicat1 <-as.numeric(Malesv1$syndicat1)
+Malesv1 <- Malesv1[,-4]
+```
+
+
+```{r, echo = FALSE}
+Malesv1$ethnie <- factor(Malesv1$ethnie)
+ethnie1 = as.numeric(Malesv1$ethnie == "black")
+Malesv1 <- cbind(Malesv1, ethnie1)
+ethnie2 = as.numeric(Malesv1$ethnie == "hisp")
+Malesv1 <- cbind(Malesv1, ethnie2)
+ethnie3 = as.numeric(Malesv1$ethnie == "other")
+Malesv1 <- cbind(Malesv1, ethnie3)
+Malesv1 <- Malesv1[,-4]
+```
+
+
+```{r, echo = FALSE}
+Malesv1$s <- factor(Malesv1$s)
+Malesv1$s1 <- rep("0", nrow(Malesv1))
+Malesv1$s1[Malesv1$s == "yes"] <- "1"
+Malesv1$s1 <-as.numeric(Malesv1$s1)
+Malesv1 <- Malesv1[,-4]
+```
+
+```{r, echo = FALSE}
+Malesv1$sante <- factor(Malesv1$sante)
+Malesv1$sante1 <- rep("0", nrow(Malesv1))
+Malesv1$sante1[Malesv1$sante == "yes"] <- "1"
+Malesv1$sante1 <-as.numeric(Malesv1$sante1)
+Malesv1 <- Malesv1[,-4] 
+```
+
+```{r, echo = FALSE}
+Malesv1$poste <- factor(Malesv1$poste)
+poste1 = as.numeric(Malesv1$poste == "Clerical_and_kindred")
+Malesv1 <- cbind(Malesv1, poste1)
+poste2 = as.numeric(Malesv1$poste == "Craftsmen, Foremen_and_kindred")
+Malesv1 <- cbind(Malesv1, poste2)
+poste3 = as.numeric(Malesv1$poste == "Farm_Laborers_and_Foreman")
+Malesv1 <- cbind(Malesv1, poste3)
+poste4 = as.numeric(Malesv1$poste == "Laborers_and_farmers")
+Malesv1 <- cbind(Malesv1, poste4)
+poste5 = as.numeric(Malesv1$poste == "Managers, Officials_and_Proprietors")
+Malesv1 <- cbind(Malesv1, poste5)
+poste6 = as.numeric(Malesv1$poste == "Operatives_and_kindred")
+Malesv1 <- cbind(Malesv1, poste6)
+poste7 = as.numeric(Malesv1$poste == "Professional, Technical_and_kindred")
+Malesv1 <- cbind(Malesv1, poste7)
+poste8 = as.numeric(Malesv1$poste == "Sales_Workers")
+Malesv1 <- cbind(Malesv1, poste8)
+poste9 = as.numeric(Malesv1$poste == "Service_Workers")
+Malesv1 <- cbind(Malesv1, poste9)
+Malesv1 <- Malesv1[,-5] 
+```
+
+```{r, echo = FALSE}
+Malesv1$salaire <- as.numeric(Malesv1$salaire)
+```
+
+Matrice de corrélation 
+
+```{r, echo = FALSE}
+MatriceCor <- as.dist(round(cor(Malesv1),2)) 
+MatriceCor
+```
+
+Régression 3 : 
+
+```{r, echo = FALSE}
+reg3 <- lm(salaire ~., data = Malesv1)
+summary(reg3)
+```
+
+# Analyse de la régression 3
+### *Les coefficents*
+
+Nous pouvons voir que les p-value associées aux coefficients des variables annee, ecole et exper sont tous inférieurs à 0.001, ce qui veut dire que nous rejetons l'hypothèse nulle. Les coefficients sont donc significativement différents de 0. 
+
+Les p-value associées aux coefficients pour la variable industrie sont presque toutes inférieures à leur alpha respectif. Ce qui veut dire que les coefficients sont différents de 0. Pour industrie 8 et industrie 10, le risque de rejetter les hypothèses nulles est élevé, par conséquent nous les conservons. 
+
+Comme pour le modèle précédent la variable sante n'a pas d'influence sur le salaire. De même, pour la variable ethnie2. En revanche, les variables ethnie1 et syndicat ont elles une influence. 
+
+Enfin, pour la variable poste nous arrivons à des conclusions différentes en fonction du poste. Par exemple, les postes 3, 4 et 6 n'influencent pas le salaire. Contrairement aux autres postes. 
+
+
+### *R²* 
+
+Le coefficient de détermination est égal à celui du modèle précedent (**0.2629**). Ce qui veut dire que le modèle explique seulement à 26.29% la variabilité du salaire. Le recodage de la base de données n'a pas permis d'augmenter la qualité de l'ajustement du modèle. De même, pour le R² ajusté.
+
+
+### *Significativité globale du modèle*
+
+<span style="color:pink">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+Ici, nous rejetons l'hypothèse nulle et nous en déduisons que le modèle est globalement significatif. 
+
+### *Les résidus*
+
+```{r, echo = FALSE, fig.height = 6, fig.width = 10}
+par(mfrow=c(2,2))
+plot(reg3)
+```
+
+- *Normalité*
+
+```{r, echo = FALSE}
+shapiro.test(reg3$residuals)
+```
+
+<span style="color:pink">**p-value < 2.2e-16 < alpha = 0.01**</span>
+
+Nous rejetons H0, l'hypothèse de normalité des résidus. 
+
+Le graphique et le test de Shapiro-Wilk nous amène à conclure que les résidus ne suivent pas une loi normale. 
+
+
+- *Homoscédasticité* 
+
+```{r, echo = FALSE}
+bptest(reg3)
+```
+
+<span style="color:pink">**p-value = 4.846e-05 < alpha = 0.01**</span>
+
+Le test de Breusch-Pagan nous démontre que la variance des résidus de ce modèle n'est pas constante. Nous rejetons l'hypothèse d'homoscédasticité. 
+
+- *Linéarité* 
+
+Le graphique "Residuals vs Fitted" nous montre un regroupement des résidus, ce qui veut dire qu'ils ne sont pas distribués de manière aléatoire. L'hypothèse de linéarité est rejetée.
+
+- *Valeurs aberrantes*
+
+D'après le graphique "Residuals vs Leverage", nous pouvons conclure qu'il n'y a pas de données aberrantes. 
+
+```{r, echo = FALSE}
+plot(reg3, 4)
+```
+
+La distance de Cook ne dépasse jamais 1 mais comme pour les modèles vu avant, certaines valeurs se distinguent des autres. 
+
+- *Conclusion*
+
+Le modèle 3 est assez similaire au modèle 2. Et tout comme celui-ci, les résultats obtenus ne peuvent pas être acceptés. 
+
+# Conclusion 
+
+Après les différentes observations faites et les différents modèles étudiés nous pouvons dire que les éléments de cette base de données ne nous permettent pas d'affirmer que les variables ont un impact sur le salaire. 
+
+En effet, les résultats sur les résidus ne permettent pas de valider les modèles. De plus, les R² sont très faibles. Il n'est donc pas possible de conclure clairement sur l'influence des variables telles que les années d'études et d'expérience, sur le salaire. 
